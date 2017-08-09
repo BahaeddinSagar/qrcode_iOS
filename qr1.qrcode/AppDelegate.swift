@@ -7,15 +7,23 @@
 //
 
 import UIKit
+import Contacts
+import Firebase
+import FirebaseAuth
+import UserNotifications
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
-
-
+    
+    var contactStore = CNContactStore()
+    
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        FirebaseApp.configure()
+        // uncomment this line if you want to delay the launcherScreen
+        // RunLoop.current.run(until: NSDate(timeIntervalSinceNow: 3) as Date)
         return true
     }
 
@@ -40,7 +48,78 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
+    
+    //firebase functions
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Pass device token to auth
+        Auth.auth().setAPNSToken(deviceToken, type: AuthAPNSTokenType.prod)
+        
+        // Further handling of the device token if needed by the app
+        // ...
+    }
+    
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification notification: [AnyHashable : Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if Auth.auth().canHandleNotification(notification) {
+            completionHandler(UIBackgroundFetchResult.noData)
+            return
+        }
+        // This notification is not auth related, developer should handle it.
+    }
+    
+    // Extra Functions
+    
+    class func getAppDelegate() -> AppDelegate {
+        return UIApplication.shared.delegate as! AppDelegate
+    }
+    
+    // To Display message for request Access
+    func showMessage(_ message: String) {
+        let alertController = UIAlertController(title: "Birthdays", message: message, preferredStyle: UIAlertControllerStyle.alert)
+        
+        let dismissAction = UIAlertAction(title: "OK", style: UIAlertActionStyle.default) { (action) -> Void in
+        }
+        
+        alertController.addAction(dismissAction)
+        
+        let pushedViewControllers = (self.window?.rootViewController as! UINavigationController).viewControllers
+        let presentedViewController = pushedViewControllers[pushedViewControllers.count - 1]
+        
+        presentedViewController.present(alertController, animated: true, completion: nil)
+    }
 
+    
+    // To request Access
+    func requestForAccess(_ completionHandler: @escaping (_ accessGranted: Bool) -> Void) {
+        let authorizationStatus = CNContactStore.authorizationStatus(for: CNEntityType.contacts)
+        
+        switch authorizationStatus {
+        case .authorized:
+            completionHandler(true)
+            
+        case .denied, .notDetermined:
+            self.contactStore.requestAccess(for: CNEntityType.contacts, completionHandler: { (access, accessError) -> Void in
+                if access {
+                    completionHandler(access)
+                }
+                else {
+                    if authorizationStatus == CNAuthorizationStatus.denied {
+                        DispatchQueue.main.async(execute: { () -> Void in
+                            let message = "\(accessError!.localizedDescription)\n\nPlease allow the app to access your contacts through the Settings."
+                            self.showMessage(message)
+                        })
+                    }
+                }
+            })
+            
+        default:
+            completionHandler(false)
+        }
+    }
+
+    
+    
 
 }
 

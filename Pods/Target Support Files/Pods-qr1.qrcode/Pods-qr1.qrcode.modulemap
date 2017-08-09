@@ -1,0 +1,6 @@
+framework module Pods_qr1_qrcode {
+  umbrella header "Pods-qr1.qrcode-umbrella.h"
+
+  export *
+  module * { export * }
+}
